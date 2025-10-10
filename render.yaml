@@ -2,7 +2,7 @@ services:
   - type: web
     name: email-cleaner-bot
     env: python
-    python_version: "3.12.10"  # Make sure this matches the Python version you want
-    buildCommand: "pip install -r requirements.txt"  # Installs dependencies from your requirements.txt
-    startCommand: "python3 bot.py"  # Ensure this points to the correct location of your bot.py file
-    healthCheckPath: "/"  # Optional: you can configure this if you want to monitor your bot's health
+    python_version: "3.12.10"
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python3 telegram_email_cleaner.py"
+    healthCheckPath: "/"

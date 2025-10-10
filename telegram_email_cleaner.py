@@ -7,6 +7,7 @@ import logging
 import asyncio
 from io import StringIO, BytesIO
 from typing import List, Tuple, Dict
+import sys
 
 # Networking + Telegram
 from aiohttp import web
@@ -280,15 +281,43 @@ async def send_results(update: Update, result: Dict):
 # Start Telegram Bot
 # -----------------------
 async def main():
-    application = ApplicationBuilder().token("YOUR_BOT_API_TOKEN").build()
+    # Read token from environment to avoid committing secrets in source.
+    # Support multiple environment variable names for convenience.
+    token = os.getenv("BOT_API_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
+    if not token or token == "YOUR_BOT_API_TOKEN":
+        logger.error("Bot token environment variable is not set. Set BOT_API_TOKEN or TELEGRAM_BOT_TOKEN and restart the bot.")
+        print("Error: bot token environment variable is not set.\nSet it like: export TELEGRAM_BOT_TOKEN='<your-token>'\nThen run: python3 telegram_email_cleaner.py")
+        return
+
+    # Do not log the token value to avoid accidental leaks
+    application = ApplicationBuilder().token(token).build()
 
     # Handlers
     application.add_handler(CommandHandler("start", cmd_start))
     application.add_handler(MessageHandler(filters.TEXT, handle_text))
     application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
 
-    # Run
-    await application.run_polling(allowed_updates=Update.ALL)
+    # Start a tiny web server so Render can use a Web service (health checks / port binding).
+    port = int(os.getenv("PORT", "10000"))
+    app = web.Application()
+
+    async def health(request):
+        return web.Response(text="OK")
+
+    app.router.add_get("/", health)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    logger.info(f"Health server started on port {port}")
+
+    try:
+        # Run the bot (polling) — the web server runs concurrently and keeps Render happy.
+        await application.run_polling()
+    finally:
+        # Clean up web server on shutdown
+        await runner.cleanup()
 
 if __name__ == "__main__":
     asyncio.run(main())
