@@ -2,7 +2,8 @@ services:
   - type: web
     name: email-cleaner-bot
     env: python
-    python_version: "3.12.10"
+    python_version: "3.13.4"
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python3 telegram_email_cleaner.py"
     healthCheckPath: "/"
+
